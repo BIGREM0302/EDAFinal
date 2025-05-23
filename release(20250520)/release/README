@@ -1,0 +1,6 @@
+In this released test case, each design includes one trojan, corresponding to its respective trojan definition. 
+
+For example:
+- design0.v contains trojan0.v
+- design1.v contains trojan1.v
+- designN.v contains trojanN.v, etc.

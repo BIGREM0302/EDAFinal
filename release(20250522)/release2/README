@@ -1,0 +1,7 @@
+This release includes two folders:
+
+- trojan_design: 
+    Contains 10 designs, each incorporating a unique type of trojan. This time, trojans are injected in a random order.
+
+- trojan_free: 
+    Contains 10 trojan free designs.
