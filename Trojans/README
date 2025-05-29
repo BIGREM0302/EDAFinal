@@ -1,0 +1,29 @@
+0. Trojan0:
+   Random encode (XOR) the key and leak its information through load wire
+
+1. Trojan1:
+   r1 signal as an outer control signal, r1 == 1 > 8 cycles then send the trigger signal (maybe to the next trojan)
+
+2. Trojan2:
+   After a certain pattern of data, force_trigger acts as a fake reset signal and send out
+
+3. Trojan3:
+   Secretly modify the data (increase 2) when finish counting
+
+4. Trojan4:
+   Leak the key directly
+
+5. Trojan5:
+   Secretly skip an instruction by incrementing the pc register by 2 under certain conditions
+
+6. Trojan6:
+   After following a specific data pattern, modify the last 2 bits of data
+
+7. Trojan7:
+   Change the slave controlled by the master program under certain input data pattern
+
+8. Trojan8:
+   With some repeated/equivalent computation logic, has potential to leak information
+
+9. Trojan9:
+   Like trojan8, through some computations, try to send wrong data out
