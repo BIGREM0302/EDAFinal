@@ -1,19 +1,19 @@
 # flatten.ys
 
-# 1. 讀入 Verilog 檔案，啟用 SystemVerilog 語法解析
-read_verilog -sv trojan0.v
+# 1. 讀入 Verilog 檔案，檔名由外部變數 $infile 指定
+read_verilog -sv trojan1.v
 
-# 2. 驗證階層並指定頂層模組
-hierarchy -check -top Trojan0
+# 2. 驗證階層並指定頂層模組，由外部變數 $top 指定
+hierarchy -check -top Trojan1
 
-# 3. 展開 procedural blocks（for-loop 會自動轉成 state machine）
+# 3. 展開 procedural blocks
 proc
 
-# 4. 扁平化指定頂層底下的所有子模組
-flatten -selected Trojan0
+# 4. 扁平化所有 module
+flatten
 
 # 5. 清除未使用的 wire/reg
 opt_clean
 
-# 6. 輸出扁平後的單層 netlist
-write_verilog flattened_trojan0.v
+# 6. 輸出扁平後的單層 netlist，檔名由外部變數 $outfile 指定
+write_verilog -noattr flattened_trojan1.v

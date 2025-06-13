@@ -99,3 +99,7 @@ module lfsr_counter (
             lfsr_stream <= {d0, lfsr_stream[19:1]};
         end
 endmodule
+
+
+
+
