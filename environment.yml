@@ -1,0 +1,16 @@
+name: pyverilog-env
+channels:
+  - defaults
+  - conda-forge
+  - pytorch
+
+dependencies:
+  - python=3.9
+  - pip
+  - numpy
+  - networkx
+  - jupyter
+  - pytorch
+  - torchvision
+  - pip:
+      - pyverilog
