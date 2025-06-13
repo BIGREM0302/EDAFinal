@@ -1,1 +1,8 @@
 .DS_Store
+
+# PyVerilog cache
+parser.out
+parsetab.py
+
+# Pipeline outputs
+/build/
