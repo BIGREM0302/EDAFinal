@@ -1,0 +1,20 @@
+# 讀檔 & 設定頂層
+read_verilog -sv trojan0.v          # 需要時把 lfsr_counter.v 之類一起讀進來
+hierarchy -check -top Trojan0
+
+# RTL → 低階網路
+proc;           # 展開 always / for loop
+opt; fsm; opt
+memory -nomap   # 如果有 memory，拆成邏輯，不映射真記憶體
+flatten         # 扁平化層次
+
+# 把寄存器交給 dfflibmap 先行 mapping
+dfflibmap -liberty simple11.lib
+
+# 把組合邏輯交給 ABC 做 technology mapping
+abc -liberty simple11.lib \
+    -g AND2,OR2,XOR2,XNOR2,NOR2,NOT,BUF,DFF   # <- 額外限制只用這些元件 :contentReference[oaicite:1]{index=1}
+
+# 最後收尾、輸出
+opt -full
+write_verilog -noattr trojan0_simple.v

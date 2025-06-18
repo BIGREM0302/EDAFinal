@@ -1,0 +1,74 @@
+/*--------------------------------------------------------------*
+ *  Simple 11-gate Library (function-only, no timing)            *
+ *  適合做教學用 / 小型技術導向測試                              *
+ *--------------------------------------------------------------*/
+library(simple11) {
+  /*  單位宣告：採常見預設，不影響 function-only 合成            */
+  delay_model              : table_lookup;
+  time_unit                : "1ns";
+  voltage_unit             : "1V";
+  current_unit             : "1mA";
+  pulling_resistance_unit  : "1kohm";
+  bus_naming_style         : "%s[%d]";
+
+  /*----------- Combinational Gates -----------------------------*/
+  cell(AND2) {             /* 2-input AND */
+    area : 1;
+    pin(A) { direction : input; }
+    pin(B) { direction : input; }
+    pin(Y) { direction : output; function : "A & B"; }
+  }
+
+  cell(OR2) {              /* 2-input OR  */
+    area : 1;
+    pin(A) { direction : input; }
+    pin(B) { direction : input; }
+    pin(Y) { direction : output; function : "A | B"; }
+  }
+
+  cell(XOR2) {             /* 2-input XOR */
+    area : 1;
+    pin(A) { direction : input; }
+    pin(B) { direction : input; }
+    pin(Y) { direction : output; function : "A ^ B"; }
+  }
+
+  cell(XNOR2) {            /* 2-input XNOR */
+    area : 1;
+    pin(A) { direction : input; }
+    pin(B) { direction : input; }
+    pin(Y) { direction : output; function : "!(A ^ B)"; }
+  }
+
+  cell(NOR2) {             /* 2-input NOR */
+    area : 1;
+    pin(A) { direction : input; }
+    pin(B) { direction : input; }
+    pin(Y) { direction : output; function : "!(A | B)"; }
+  }
+
+  cell(NOT) {              /* Inverter */
+    area : 0.5;
+    pin(A) { direction : input; }
+    pin(Y) { direction : output; function : "!A"; }
+  }
+
+  cell(BUF) {              /* Buffer */
+    area : 0.5;
+    pin(A) { direction : input; }
+    pin(Y) { direction : output; function : "A"; }
+  }
+
+  /*----------- Sequential Element ------------------------------*/
+  cell(DFF) {              /* Positive-edge-triggered D-FF */
+    area : 4;
+    ff(IQ, IQN) {              /* liberty ff() 宣告 */
+      clocked_on : CLK;        /* 觸發時機 */
+      next_state : D;          /* 下一狀態來源 */
+    }
+    pin(CLK) { direction : input; clock : true; }
+    pin(D)   { direction : input; }
+    pin(Q)   { direction : output; function : "IQ"; }
+    /* 如需反向輸出可加 pin(QN)…，這裡省略 */
+  }
+}
