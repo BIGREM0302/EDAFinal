@@ -4,27 +4,21 @@ read_verilog -sv  trojan0.v            # ← RTL 列在這裡
 hierarchy      -check -top  Trojan0    # ← 頂層
 
 # 1. 展開 always / assign
-proc
-opt
-memory
-fsm
-opt
+# the high-level stuff
+proc; opt
+memory; opt
+fsm; opt
 
-# 2. generic gate → primitive gate（保留 bus）
-simplemap                 # 先轉 primitive
-splitnets -ports          # 這一行「炸開」所有 bus，逐 bit net
+techmap; opt
+
+dfflibmap -liberty mycells.lib
+
+# mapping logic to mycells.lib
+abc -liberty mycells.lib
+
+# cleanup
 clean
-
-# 3. $_DFF_* → 單一 'dff' cell（index 10）
-# techmap -map dff_map.v    # <== 下面提供，同前
-techmap -map dff_wrap.v   # <── 把 $dff/$sdff → dff
-# techmap -map xor_wrap.v    # 把 $xor → xor
-clean
-
-# 4. （舊版 Yosys）不使用 alias；多跑兩次清理
-opt_clean
-opt
 
 # 5. 輸出（bit-level、無屬性）
-write_verilog -noattr out.v
+write_verilog -noattr trojan0_flatten.v
 # ===============================================================
