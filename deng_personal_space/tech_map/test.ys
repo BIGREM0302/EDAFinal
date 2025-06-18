@@ -1,0 +1,9 @@
+# test.ys ── 8 行示範
+read_verilog mini.v
+proc; opt
+simplemap          # 產生 $dff 或 $_DFF_P_
+# count -cells       # 檢查目前 cell 種類（應該包含 $dff）
+techmap -map dff_wrap.v
+clean
+# count -cells       # 應該只剩下 dff
+write_verilog -noattr out.v
