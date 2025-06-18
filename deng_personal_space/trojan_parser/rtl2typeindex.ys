@@ -1,7 +1,7 @@
 # =========  rtl2bitgate.ys  =====================================
 # ★ 修改下兩行檔名 / 頂層 ★
-read_verilog -sv  trojan0.v            # ← RTL 列在這裡
-hierarchy      -check -top  Trojan0    # ← 頂層
+read_verilog -sv  Trojans/trojan9.v            # ← RTL 列在這裡
+hierarchy      -check -top  Trojan9    # ← 頂層
 
 # 1. 展開 always / assign
 # the high-level stuff
@@ -20,5 +20,5 @@ abc -liberty mycells.lib
 clean
 
 # 5. 輸出（bit-level、無屬性）
-write_verilog -noattr trojan0_flatten.v
+write_verilog -noattr Flatten_Trojans/trojan9_flatten.v
 # ===============================================================
