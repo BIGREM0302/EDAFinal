@@ -12,7 +12,7 @@ from torch_geometric.nn import GINConv, global_mean_pool
 class VerilogDataset(InMemoryDataset):
     def __init__(self, root_dir, transform=None, pre_transform=None):
         super().__init__(root_dir, transform, pre_transform)
-        self.data, self.slices = torch.load(self.processed_paths[0])
+        self.data, self.slices = torch.load(self.processed_paths[0], weights_only=False)
 
     @property
     def processed_file_names(self):
@@ -20,7 +20,7 @@ class VerilogDataset(InMemoryDataset):
 
     def process(self):
         graphs = []
-        for design_dir in sorted(glob.glob(os.path.join(self.root, '*'))):
+        for design_dir in sorted(glob.glob(os.path.join(self.raw_dir, '*'))):
             epath = os.path.join(design_dir, 'GNNedges.csv')
             vpath = os.path.join(design_dir, 'GNNnodetypes.csv')
             lpath = os.path.join(design_dir, 'label.txt')
@@ -33,7 +33,6 @@ class VerilogDataset(InMemoryDataset):
             x_df = pd.read_csv(vpath).drop(columns=['id', 'name'], errors='ignore')
             x = torch.tensor(x_df.values, dtype=torch.float)
 
-            # 原始 y 是一個整數，表示 Trojan 類型（0 ~ 9）
             y = int(open(lpath).read().strip())
 
             graphs.append(Data(x=x, edge_index=edge_index, y=torch.tensor([y], dtype=torch.long)))
@@ -57,7 +56,6 @@ class TrojanDetector(nn.Module):
         self.convs = nn.ModuleList([GINConv(mlp()) for _ in range(num_layers)])
         self.bns   = nn.ModuleList([nn.BatchNorm1d(hidden) for _ in range(num_layers)])
 
-        # 二元分類器，輸出 2 個 logits
         self.head = nn.Sequential(
             nn.Linear(hidden, hidden),
             nn.ReLU(),
@@ -104,17 +102,13 @@ if __name__ == '__main__':
     lr         = 2e-3
     wd         = 1e-4
 
-    # 1) 載入完整資料集（y 是 0~9）
     full_dataset = VerilogDataset(root_dir)
 
-    # 為了 stratify，我们先收集原始多類別標籤
     all_labels = [full_dataset[i].y.item() for i in range(len(full_dataset))]
 
-    # 2) 對每一個 Trojan 類型 i，生成一個二元分類資料集、訓練並儲存模型
-    for trojan_type in range(10):
+    for trojan_type in range(11):
         print(f'\n=== Training classifier for Trojan type {trojan_type} ===')
 
-        # 建立 indices 列表並用 stratify 分割
         idx_tr, idx_te = train_test_split(
             list(range(len(full_dataset))),
             test_size=0.2,
@@ -122,12 +116,10 @@ if __name__ == '__main__':
             random_state=42
         )
 
-        # 為了做「一 vs. 其餘」，我們需要動態修改每個 sample 的 label
         def make_binary_dataset(indices):
             graphs = []
             for idx in indices:
                 data = full_dataset[idx]
-                # 如果原始 label == trojan_type，則新的 y=1，否則 y=0
                 y_bin = 1 if data.y.item() == trojan_type else 0
                 graphs.append(Data(x=data.x, edge_index=data.edge_index, y=torch.tensor([y_bin], dtype=torch.long)))
             return graphs
@@ -147,6 +139,6 @@ if __name__ == '__main__':
                 acc = evaluate(model, loader_te, device)
                 print(f'  Epoch {epoch:03d}  loss={loss:.4f}  val_acc={acc:.3f}')
 
-        model_path = f'trojan_detector_type{trojan_type}.pt'
+        model_path = f'./models/trojan_detector_type{trojan_type}.pt'
         torch.save(model.state_dict(), model_path)
         print(f'  >> Saved model for type {trojan_type} to {model_path}')
