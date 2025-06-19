@@ -6,3 +6,5 @@ parsetab.py
 
 # Pipeline outputs
 /build/
+
+./venv/*

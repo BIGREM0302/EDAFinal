@@ -33,9 +33,10 @@ class VerilogDataset(InMemoryDataset):
             x_df = pd.read_csv(vpath).drop(columns=['id', 'name'], errors='ignore')
             x = torch.tensor(x_df.values, dtype=torch.float)
 
-            y = torch.tensor([int(open(lpath).read().strip())], dtype=torch.long)
+            # 原始 y 是一個整數，表示 Trojan 類型（0 ~ 9）
+            y = int(open(lpath).read().strip())
 
-            graphs.append(Data(x=x, edge_index=edge_index, y=y))
+            graphs.append(Data(x=x, edge_index=edge_index, y=torch.tensor([y], dtype=torch.long)))
 
         data, slices = self.collate(graphs)
         torch.save((data, slices), self.processed_paths[0])
@@ -56,6 +57,7 @@ class TrojanDetector(nn.Module):
         self.convs = nn.ModuleList([GINConv(mlp()) for _ in range(num_layers)])
         self.bns   = nn.ModuleList([nn.BatchNorm1d(hidden) for _ in range(num_layers)])
 
+        # 二元分類器，輸出 2 個 logits
         self.head = nn.Sequential(
             nn.Linear(hidden, hidden),
             nn.ReLU(),
@@ -98,32 +100,53 @@ if __name__ == '__main__':
     root_dir = './dataset'
     device   = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     batch_size = 8
-    epochs     = 100
+    epochs     = 50
     lr         = 2e-3
     wd         = 1e-4
-    model_save_path = 'trojan_detector.pt'
 
-    # 1) load dataset
-    dataset = VerilogDataset(root_dir)
-    idx_tr, idx_te = train_test_split(
-        list(range(len(dataset))),
-        test_size=0.2,
-        stratify=[dataset[i].y.item() for i in range(len(dataset))]
-    )
-    loader_tr = DataLoader(dataset[idx_tr], batch_size=batch_size, shuffle=True)
-    loader_te = DataLoader(dataset[idx_te], batch_size=batch_size)
+    # 1) 載入完整資料集（y 是 0~9）
+    full_dataset = VerilogDataset(root_dir)
 
-    # 2) init model & optimizer
-    model = TrojanDetector(in_dim=dataset.num_node_features).to(device)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=wd)
+    # 為了 stratify，我们先收集原始多類別標籤
+    all_labels = [full_dataset[i].y.item() for i in range(len(full_dataset))]
 
-    # 3) training loop
-    for epoch in range(1, epochs+1):
-        loss = train_epoch(model, loader_tr, optimizer, device)
-        if epoch % 10 == 0:
-            acc = evaluate(model, loader_te, device)
-            print(f'Epoch {epoch:03d}  loss={loss:.4f}  val_acc={acc:.3f}')
+    # 2) 對每一個 Trojan 類型 i，生成一個二元分類資料集、訓練並儲存模型
+    for trojan_type in range(10):
+        print(f'\n=== Training classifier for Trojan type {trojan_type} ===')
 
-    # 4) save model
-    torch.save(model.state_dict(), model_save_path)
-    print(f'Model saved to {model_save_path}')
+        # 建立 indices 列表並用 stratify 分割
+        idx_tr, idx_te = train_test_split(
+            list(range(len(full_dataset))),
+            test_size=0.2,
+            stratify=all_labels,
+            random_state=42
+        )
+
+        # 為了做「一 vs. 其餘」，我們需要動態修改每個 sample 的 label
+        def make_binary_dataset(indices):
+            graphs = []
+            for idx in indices:
+                data = full_dataset[idx]
+                # 如果原始 label == trojan_type，則新的 y=1，否則 y=0
+                y_bin = 1 if data.y.item() == trojan_type else 0
+                graphs.append(Data(x=data.x, edge_index=data.edge_index, y=torch.tensor([y_bin], dtype=torch.long)))
+            return graphs
+
+        train_graphs = make_binary_dataset(idx_tr)
+        test_graphs  = make_binary_dataset(idx_te)
+
+        loader_tr = DataLoader(train_graphs, batch_size=batch_size, shuffle=True)
+        loader_te = DataLoader(test_graphs,  batch_size=batch_size)
+
+        model = TrojanDetector(in_dim=full_dataset.num_node_features).to(device)
+        optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=wd)
+
+        for epoch in range(1, epochs+1):
+            loss = train_epoch(model, loader_tr, optimizer, device)
+            if epoch % 10 == 0 or epoch == epochs:
+                acc = evaluate(model, loader_te, device)
+                print(f'  Epoch {epoch:03d}  loss={loss:.4f}  val_acc={acc:.3f}')
+
+        model_path = f'trojan_detector_type{trojan_type}.pt'
+        torch.save(model.state_dict(), model_path)
+        print(f'  >> Saved model for type {trojan_type} to {model_path}')
