@@ -104,16 +104,20 @@ struct Node {
 
 int main(){
 
-    const string base_input_path = "../WithLabelCases/release/";
-    const string base_output_path = "./dataset/";
-
+    bool islabelled = false;
+    //const string base_input_path = "../WithLabelCases/release/";
+    const string base_input_path = "../WithoutLabelCases/release2/";
+    
+    //const string base_output_path = "./dataset/";
+    const string base_output_path = "./testset/";
     initialize();
 
-    for(int i = 0; i < 10; i ++){
+    for(int i = 10; i < 30; i ++){
+    int label = i + 1;
     string design_dir = "design"+to_string(i);
     string design_file = design_dir+".v";
     string input_path = base_input_path+design_file;
-    string output_path = base_output_path + design_dir + "/";
+    string output_path = base_output_path + "raw/" + design_dir + "/";
     
     fs::create_directories(output_path);
 
@@ -122,9 +126,9 @@ int main(){
     //ifstream infile("circuit.v");
     ofstream edgefile(output_path+"edges.csv");
     ofstream nodefile(output_path+"nodetypes.csv");
-    ofstream GNNedgefile(base_input_path+design_file+"GNNedges.csv");
-    ofstream GNNnodefile(base_input_path+design_file+"GNNnodetypes.csv");
-
+    ofstream GNNedgefile(output_path+"GNNedges.csv");
+    ofstream GNNnodefile(output_path+"GNNnodetypes.csv");
+    
     unordered_map<string, Node> nodes;                   // node_name -> Node
     unordered_map<string, string> wire_to_node;          // wire_name -> node_name
     unordered_map<string, int> node_id_map;              // node_name -> id
@@ -292,6 +296,12 @@ int main(){
             }
         }
     }
+    // create label
+    if(islabelled){
+        ofstream labelfile(output_path+"label.txt");
+        labelfile << label << endl;
+    }
+    
     }
     return 0;
 }

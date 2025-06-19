@@ -8,7 +8,7 @@ from gnn_train import VerilogDataset
 
 def load_models(model_dir, in_dim, device):
     models = []
-    for t in range(11):
+    for t in range(1,11):
         path = f"{model_dir}/trojan_detector_type{t}.pt"
         model = TrojanDetector(in_dim=in_dim).to(device)
         model.load_state_dict(torch.load(path, map_location=device))

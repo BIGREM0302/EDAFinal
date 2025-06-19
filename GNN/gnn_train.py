@@ -11,9 +11,9 @@ from torch_geometric.nn import GINConv, global_mean_pool
 
 class VerilogDataset(InMemoryDataset):
     def __init__(self, root_dir, transform=None, pre_transform=None, allow_missing_label=False):
+        self.allow_missing_label = allow_missing_label
         super().__init__(root_dir, transform, pre_transform)
         self.data, self.slices = torch.load(self.processed_paths[0], weights_only=False)
-
     @property
     def processed_file_names(self):
         return ['design_graphs.pt']
@@ -21,6 +21,13 @@ class VerilogDataset(InMemoryDataset):
     def process(self):
         graphs = []
         for design_dir in sorted(glob.glob(os.path.join(self.raw_dir, '*'))):
+            print(design_dir)
+            # expected file structure:
+            # root -
+            #      design1/
+            #              GNNedges.csv
+            #              GNNnodetypes.csv
+            #              label.txt
             epath = os.path.join(design_dir, 'GNNedges.csv')
             vpath = os.path.join(design_dir, 'GNNnodetypes.csv')
             lpath = os.path.join(design_dir, 'label.txt')
@@ -32,11 +39,12 @@ class VerilogDataset(InMemoryDataset):
 
             x_df = pd.read_csv(vpath).drop(columns=['id', 'name'], errors='ignore')
             x = torch.tensor(x_df.values, dtype=torch.float)
-
-            y = int(open(lpath).read().strip())
-
-            graphs.append(Data(x=x, edge_index=edge_index, y=torch.tensor([y], dtype=torch.long)))
-
+            if self.allow_missing_label:
+                # 原始 y 是一個整數，表示 Trojan 類型（1 ~ 10), 0 stands for no Trojan
+                graphs.append(Data(x=x, edge_index=edge_index))
+            else:
+                y = int(open(lpath).read().strip())
+                graphs.append(Data(x=x, edge_index=edge_index, y=torch.tensor([y], dtype=torch.long)))
         data, slices = self.collate(graphs)
         torch.save((data, slices), self.processed_paths[0])
 
@@ -56,6 +64,7 @@ class TrojanDetector(nn.Module):
         self.convs = nn.ModuleList([GINConv(mlp()) for _ in range(num_layers)])
         self.bns   = nn.ModuleList([nn.BatchNorm1d(hidden) for _ in range(num_layers)])
 
+        # 二元分類器，輸出 2 個 logits
         self.head = nn.Sequential(
             nn.Linear(hidden, hidden),
             nn.ReLU(),
@@ -69,7 +78,12 @@ class TrojanDetector(nn.Module):
             x = conv(x, edge_index)
             x = bn(x).relu()
         pooled = global_mean_pool(x, batch)
-        return self.head(pooled)
+        logits = self.head(pooled) # logics[0]: probability that it's trojaned/ logics[1]: probability that it's trojanned
+        return logits
+        # 回傳 class 1 的機率（accept 機率）
+        #probs = F.softmax(logits, dim=1)
+        #return probs[:, 1]  # 回傳每個 graph 是 Trojan 的機率
+
 
 def train_epoch(model, loader, optimizer, device):
     model.train()
@@ -90,6 +104,7 @@ def evaluate(model, loader, device):
     with torch.no_grad():
         for batch in loader:
             batch = batch.to(device)
+            # simply get the maximum one
             preds = model(batch).argmax(dim=1)
             correct += (preds == batch.y.view(-1)).sum().item()
     return correct / len(loader.dataset)
@@ -102,24 +117,32 @@ if __name__ == '__main__':
     lr         = 2e-3
     wd         = 1e-4
 
+    # 1) 載入完整資料集（y 是 0~10）
     full_dataset = VerilogDataset(root_dir)
-
+    print(len(full_dataset))
+    # 為了 stratify，我们先收集原始多類別標籤
     all_labels = [full_dataset[i].y.item() for i in range(len(full_dataset))]
 
-    for trojan_type in range(11):
+    # 2) 對每一個 Trojan 類型 i，生成一個二元分類資料集、訓練並儲存模型
+    for trojan_type in range(1, 11):
         print(f'\n=== Training classifier for Trojan type {trojan_type} ===')
 
-        idx_tr, idx_te = train_test_split(
+        # 建立 indices 列表並用 stratify 分割
+        _, idx_te = train_test_split(
             list(range(len(full_dataset))),
             test_size=0.2,
-            stratify=all_labels,
+            #stratify=all_labels,
             random_state=42
         )
+        # our train data size too small
+        idx_tr = list(range(len(full_dataset)))
 
+        # 為了做「一 vs. 其餘」，我們需要動態修改每個 sample 的 label
         def make_binary_dataset(indices):
             graphs = []
             for idx in indices:
                 data = full_dataset[idx]
+                # 如果原始 label == trojan_type，則新的 y=1，否則 y=0
                 y_bin = 1 if data.y.item() == trojan_type else 0
                 graphs.append(Data(x=data.x, edge_index=data.edge_index, y=torch.tensor([y_bin], dtype=torch.long)))
             return graphs
