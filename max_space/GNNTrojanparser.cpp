@@ -131,7 +131,7 @@ int main(){
 
     //ifstream infile("../release(20250517)/release/design9.v");
     //ifstream infile("circuit.v");
-    ifstream infile("./Flatten_Trojans/trojan5_flatten.v");
+    ifstream infile("./Flatten_Trojans/trojan0_flatten.v");
     //ifstream infile("trojancircuit.v");
     ofstream edgefile("edges.csv");
     ofstream nodefile("nodetypes.csv");
