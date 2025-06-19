@@ -15,151 +15,198 @@ module Trojan2(clk, rst, data_in, force_reset);
   wire _11_;
   wire _12_;
   wire _13_;
+  wire _14_;
+  wire _15_;
+  wire _16_;
+  wire _17_;
+  wire _18_;
+  wire _19_;
+  wire _20_;
+  wire _21_;
   input clk;
   wire clk;
   input [7:0] data_in;
   wire [7:0] data_in;
   output force_reset;
   wire force_reset;
-  wire [7:0] prev_data;
+  wire \prev_data[0] ;
+  wire \prev_data[1] ;
+  wire \prev_data[2] ;
+  wire \prev_data[3] ;
+  wire \prev_data[4] ;
+  wire \prev_data[5] ;
+  wire \prev_data[6] ;
+  wire \prev_data[7] ;
   input rst;
   wire rst;
   wire trigger;
-  \nand  _14_ (
-    .A(data_in[0]),
-    .B(data_in[2]),
+  \not  _22_ (
+    .A(\prev_data[0] ),
     .Y(_00_)
   );
-  \nand  _15_ (
-    .A(data_in[4]),
-    .B(data_in[6]),
+  \and  _23_ (
+    .A(_00_),
+    .B(\prev_data[1] ),
     .Y(_01_)
   );
-  \and  _16_ (
-    .A(_00_),
-    .B(_01_),
+  \not  _24_ (
+    .A(\prev_data[2] ),
     .Y(_02_)
   );
-  \nand  _17_ (
-    .A(prev_data[1]),
-    .B(prev_data[3]),
+  \and  _25_ (
+    .A(_02_),
+    .B(\prev_data[3] ),
     .Y(_03_)
   );
-  \nand  _18_ (
-    .A(prev_data[5]),
-    .B(prev_data[7]),
+  \and  _26_ (
+    .A(_03_),
+    .B(_01_),
     .Y(_04_)
   );
-  \and  _19_ (
-    .A(_03_),
-    .B(_04_),
+  \not  _27_ (
+    .A(\prev_data[4] ),
     .Y(_05_)
   );
-  \and  _20_ (
-    .A(_02_),
-    .B(_05_),
+  \and  _28_ (
+    .A(_05_),
+    .B(\prev_data[5] ),
     .Y(_06_)
   );
-  \and  _21_ (
-    .A(data_in[1]),
-    .B(data_in[3]),
+  \not  _29_ (
+    .A(\prev_data[6] ),
     .Y(_07_)
   );
-  \and  _22_ (
-    .A(data_in[5]),
-    .B(data_in[7]),
+  \and  _30_ (
+    .A(_07_),
+    .B(\prev_data[7] ),
     .Y(_08_)
   );
-  \and  _23_ (
-    .A(_07_),
-    .B(_08_),
+  \and  _31_ (
+    .A(_08_),
+    .B(_06_),
     .Y(_09_)
   );
-  \and  _24_ (
-    .A(prev_data[0]),
-    .B(prev_data[2]),
+  \and  _32_ (
+    .A(_09_),
+    .B(_04_),
     .Y(_10_)
   );
-  \and  _25_ (
-    .A(prev_data[4]),
-    .B(prev_data[6]),
+  \not  _33_ (
+    .A(data_in[1]),
     .Y(_11_)
   );
-  \and  _26_ (
-    .A(_10_),
-    .B(_11_),
+  \and  _34_ (
+    .A(_11_),
+    .B(data_in[0]),
     .Y(_12_)
   );
-  \and  _27_ (
-    .A(_09_),
-    .B(_12_),
+  \not  _35_ (
+    .A(data_in[3]),
     .Y(_13_)
   );
-  \nor  _28_ (
-    .A(_06_),
-    .B(_13_),
+  \and  _36_ (
+    .A(_13_),
+    .B(data_in[2]),
+    .Y(_14_)
+  );
+  \and  _37_ (
+    .A(_14_),
+    .B(_12_),
+    .Y(_15_)
+  );
+  \not  _38_ (
+    .A(data_in[5]),
+    .Y(_16_)
+  );
+  \and  _39_ (
+    .A(_16_),
+    .B(data_in[4]),
+    .Y(_17_)
+  );
+  \not  _40_ (
+    .A(data_in[7]),
+    .Y(_18_)
+  );
+  \and  _41_ (
+    .A(_18_),
+    .B(data_in[6]),
+    .Y(_19_)
+  );
+  \and  _42_ (
+    .A(_19_),
+    .B(_17_),
+    .Y(_20_)
+  );
+  \and  _43_ (
+    .A(_20_),
+    .B(_15_),
+    .Y(_21_)
+  );
+  \and  _44_ (
+    .A(_21_),
+    .B(_10_),
     .Y(trigger)
   );
-  dff _29_ (
+  dff _45_ (
     .C(clk),
     .D(trigger),
     .Q(force_reset),
     .RST(rst),
     .SET(1'h0)
   );
-  dff _30_ (
+  dff _46_ (
     .C(clk),
     .D(data_in[0]),
-    .Q(prev_data[0]),
+    .Q(\prev_data[0] ),
     .RST(rst),
     .SET(1'h0)
   );
-  dff _31_ (
+  dff _47_ (
     .C(clk),
     .D(data_in[1]),
-    .Q(prev_data[1]),
+    .Q(\prev_data[1] ),
     .RST(rst),
     .SET(1'h0)
   );
-  dff _32_ (
+  dff _48_ (
     .C(clk),
     .D(data_in[2]),
-    .Q(prev_data[2]),
+    .Q(\prev_data[2] ),
     .RST(rst),
     .SET(1'h0)
   );
-  dff _33_ (
+  dff _49_ (
     .C(clk),
     .D(data_in[3]),
-    .Q(prev_data[3]),
+    .Q(\prev_data[3] ),
     .RST(rst),
     .SET(1'h0)
   );
-  dff _34_ (
+  dff _50_ (
     .C(clk),
     .D(data_in[4]),
-    .Q(prev_data[4]),
+    .Q(\prev_data[4] ),
     .RST(rst),
     .SET(1'h0)
   );
-  dff _35_ (
+  dff _51_ (
     .C(clk),
     .D(data_in[5]),
-    .Q(prev_data[5]),
+    .Q(\prev_data[5] ),
     .RST(rst),
     .SET(1'h0)
   );
-  dff _36_ (
+  dff _52_ (
     .C(clk),
     .D(data_in[6]),
-    .Q(prev_data[6]),
+    .Q(\prev_data[6] ),
     .RST(rst),
     .SET(1'h0)
   );
-  dff _37_ (
+  dff _53_ (
     .C(clk),
     .D(data_in[7]),
-    .Q(prev_data[7]),
+    .Q(\prev_data[7] ),
     .RST(rst),
     .SET(1'h0)
   );

@@ -593,5 +593,12 @@ module Trojan0(clk, rst, key, load);
     .RST(1'h0),
     .SET(1'h0)
   );
-  assign { load[62:56], load[54:48], load[46:40], load[38:32], load[30:24], load[22:16], load[14:8], load[6:0] } = { load[63], load[63], load[63], load[63], load[63], load[63], load[63], load[55], load[55], load[55], load[55], load[55], load[55], load[55], load[47], load[47], load[47], load[47], load[47], load[47], load[47], load[39], load[39], load[39], load[39], load[39], load[39], load[39], load[31], load[31], load[31], load[31], load[31], load[31], load[31], load[23], load[23], load[23], load[23], load[23], load[23], load[23], load[15], load[15], load[15], load[15], load[15], load[15], load[15], load[7], load[7], load[7], load[7], load[7], load[7], load[7] };
+  assign load[6:0] = { load[7], load[7], load[7], load[7], load[7], load[7], load[7] };
+  assign load[14:8] = { load[15], load[15], load[15], load[15], load[15], load[15], load[15] };
+  assign load[22:16] = { load[23], load[23], load[23], load[23], load[23], load[23], load[23] };
+  assign load[30:24] = { load[31], load[31], load[31], load[31], load[31], load[31], load[31] };
+  assign load[38:32] = { load[39], load[39], load[39], load[39], load[39], load[39], load[39] };
+  assign load[46:40] = { load[47], load[47], load[47], load[47], load[47], load[47], load[47] };
+  assign load[54:48] = { load[55], load[55], load[55], load[55], load[55], load[55], load[55] };
+  assign load[62:56] = { load[63], load[63], load[63], load[63], load[63], load[63], load[63] };
 endmodule
