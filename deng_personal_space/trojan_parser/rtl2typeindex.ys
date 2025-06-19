@@ -1,7 +1,7 @@
 # =========  rtl2bitgate.ys  =====================================
 # ★ 修改下兩行檔名 / 頂層 ★
-read_verilog -sv  Trojans/trojan0.v            # ← RTL 列在這裡
-hierarchy      -check -top  Trojan0    # ← 頂層
+read_verilog -sv  Trojans/trojan9.v            # ← RTL 列在這裡
+hierarchy      -check -top  Trojan9    # ← 頂層
 
 # 1. 展開 always / assign
 # the high-level stuff
@@ -14,6 +14,11 @@ alumacc                    # 抽 ALU / MACC
 
 techmap; opt
 
+splitnets
+
+opt_clean -purge
+
+
 dfflibmap -liberty mycells.lib
 
 # mapping logic to mycells.lib
@@ -23,5 +28,5 @@ abc -liberty mycells.lib -fast
 clean
 
 # 5. 輸出（bit-level、無屬性）
-write_verilog -noattr -splitnets Flatten_Trojans/trojan0_flatten.v
+write_verilog -noattr -noexpr -simple-lhs Flatten_Trojans/trojan9_flatten.v
 # ===============================================================
