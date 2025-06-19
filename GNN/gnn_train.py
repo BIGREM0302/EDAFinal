@@ -10,7 +10,7 @@ from torch_geometric.data import InMemoryDataset, Data, DataLoader
 from torch_geometric.nn import GINConv, global_mean_pool
 
 class VerilogDataset(InMemoryDataset):
-    def __init__(self, root_dir, transform=None, pre_transform=None):
+    def __init__(self, root_dir, transform=None, pre_transform=None, allow_missing_label=False):
         super().__init__(root_dir, transform, pre_transform)
         self.data, self.slices = torch.load(self.processed_paths[0], weights_only=False)
 

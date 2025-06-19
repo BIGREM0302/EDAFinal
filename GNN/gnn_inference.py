@@ -64,7 +64,7 @@ if __name__ == "__main__":
     threshold   = 0.6
     batch_size  = 4
 
-    dataset = VerilogDataset(root_dir)
+    dataset = VerilogDataset(root_dir, allow_missing_label=True)
     graphs  = [dataset[i] for i in range(len(dataset))]
 
     models = load_models(model_dir, in_dim=dataset.num_node_features, device=device)
