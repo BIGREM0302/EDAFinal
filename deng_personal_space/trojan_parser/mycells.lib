@@ -4,28 +4,28 @@ library(demo) {
     pin(A) { direction: input; }
     pin(B) { direction: input; }
     pin(Y) { direction: output;
-             function: "A+B"; }
+             function: "A&B"; }
   }
   cell(or) {
     area: 4;
     pin(A) { direction: input; }
     pin(B) { direction: input; }
     pin(Y) { direction: output;
-             function: "A*B"; }
+             function: "A|B"; }
   }
   cell(nand) {
     area: 4;
     pin(A) { direction: input; }
     pin(B) { direction: input; }
     pin(Y) { direction: output;
-             function: "(A*B)'"; }
+             function: "(A|B)'"; }
   }
   cell(nor) {
     area: 4;
     pin(A) { direction: input; }
     pin(B) { direction: input; }
     pin(Y) { direction: output;
-             function: "(A+B)'"; }
+             function: "(A&B)'"; }
   }
   cell(not) {
     area: 3;
@@ -39,28 +39,21 @@ library(demo) {
     pin(Y) { direction: output;
               function: "A"; }
   }
-  cell(xor) {
-    area: 4;
-    pin(A) { direction: input; }
-    pin(B) { direction: input; }
-    pin(Y) { direction: output;
-             function: "A^B"; }
-  }
-  cell(xnor) {
-    area: 4;
-    pin(A) { direction: input; }
-    pin(B) { direction: input; }
-    pin(Y) { direction: output;
-             function: "(A^B)'"; }
-  }
   cell(dff) {
-    area: 18;
-    ff(IQ, IQN) { clocked_on: C;
-                  next_state: D; }
-    pin(C) { direction: input;
-                 clock: true; }
-    pin(D) { direction: input; }
-    pin(Q) { direction: output;
-              function: "IQ"; }
+    area : 18;
+    /* ff() 區塊：同時宣告 async clear 與 preset */
+    ff(IQ, IQN) {
+      clocked_on : C;        /* 正緣 */
+      next_state : D;        /* 正常情況下取 D */
+      clear      : RST;      /* RST 高 ⇒ Q = 0 */
+      preset     : SET;      /* SET 高 ⇒ Q = 1 */
+    }
+
+    /*--------- Pins --------------------------------------------*/
+    pin(RST) { direction : input; }                    /* Async Reset (高有效) */
+    pin(SET) { direction : input; }                    /* Async Set   (高有效) */
+    pin(C)   { direction : input;  clock : true; }     /* Clock */
+    pin(D)   { direction : input; }                    /* Data  */
+    pin(Q)   { direction : output; function : "IQ"; }  /* Data Out    */
   }
 }
