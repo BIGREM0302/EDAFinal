@@ -104,12 +104,12 @@ struct Node {
 
 int main(){
 
-    bool islabelled = false;
-    //const string base_input_path = "../WithLabelCases/release/";
-    const string base_input_path = "../WithoutLabelCases/release2/";
+    bool islabelled = true;
+    const string base_input_path = "../release_all/trojan/";
+    //const string base_input_path = "../WithoutLabelCases/release2/";
     
-    //const string base_output_path = "./dataset/";
-    const string base_output_path = "./testset/";
+    const string base_output_path = "./dataset/";
+    //const string base_output_path = "./testset/";
     initialize();
 
     for(int i = 10; i < 30; i ++){
