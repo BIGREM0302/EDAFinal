@@ -7,6 +7,8 @@
 #include <algorithm>
 #include <regex>
 #include <climits>
+#include <queue>
+#include <unordered_set>
 
 using namespace std;
 
@@ -89,14 +91,20 @@ struct Node {
 // global maps and vectors
 unordered_map<string, int> FFI;
 unordered_map<string, int> FFO;
-unordered_map<string, int> PI;
-unordered_map<string, int> PO;
-unordered_map<string, int> LGFI;
+//unordered_map<string, int> PI;
+vector<int> PI;
+//unordered_map<string, int> PO;
+vector<int> PO;
+vector<bool> Trojaned;
 
+unordered_map<string, int> LGFI;
 unordered_map<string, Node> nodes;                   // node_name -> Node
 unordered_map<string, string> wire_to_node;          // wire_name -> node_name
 unordered_map<string, int> node_id_map;              // node_name -> id
+unordered_map<int, string> id_node_map;             // id -> node_name
 unordered_map<string, string> dff_dq_map;           // d <-> q
+unordered_map<string, vector<string>> output_data_dependency;
+// output_data_dependency[node_name] -> the vector that it connect to
 
 vector<string> primary_input_node_name;
 vector<string> primary_output_node_name;
@@ -105,52 +113,160 @@ vector<string> dff_input_name;
 
 vector<pair<int, string>> sorted_nodes; // (id, name)
 
+void read_trojanned_label(ifstream& resultfile){
+    string line;
+    int line_count = 0;
+    Trojaned.clear();
+    for(int i = 0; i < nodes.size(); i++){
+        Trojaned.push_back(false);
+    }
+    while(getline(resultfile, line)){
+        line_count ++;
+        cout << line_count << endl;
+        if(nodes.count(line) > 0){
+            Trojaned[node_id_map[line]] = true;   
+            cout << line << "is trojaned gate" << endl;
+        }
+    }
+}
+
 int lgfi(string index){
     if(nodes[index].inputs.size() <= 0){
-        return 1;
+        return 0;
     }
     else {
         int temp = 0;
         for(const auto& ancestor:nodes[index].inputs){
+            cout << "Pair: " << index << " " << wire_to_node[ancestor] << endl;
             //cout << ancestor << ":" << nodes[ancestor].inputs.size() << endl;
+            if(valid(ancestor))
             temp += (nodes[wire_to_node[ancestor]].inputs.size()<=0)?1:nodes[wire_to_node[ancestor]].inputs.size();
         }
         return temp;
     }
 }
 
-int pi(string index){
-    if(PI.count(index) > 0){
-        return PI[index];
-    }
-    else if(nodes[index].type == "input"){
-        PI[index] = 0;
-        return PI[index];
-    }
-    else if(nodes[index].type == "dff"){
-        PI[index] = INT_MAX; // fear of cycle
-        return PI[index];
-    }
-    else{
-       if(nodes[index].inputs.size() <= 0){
-            PI[index] = INT_MAX;
-            cout << "Connect to a constant" << endl;
-            return PI[index];
-        }
-        else{
-            int temp = INT_MAX;
-            for(const auto& ancestor : nodes[index].inputs){
-                if(pi(wire_to_node[ancestor]) < temp) temp = PI[wire_to_node[ancestor]];
-            }
-            PI[index] = (temp == INT_MAX)? INT_MAX : (temp+1);
-            return PI[index];
-        } 
+void show_current_id_node_map(){
+    cout << "id->name mapping:" << endl;
+    for(const auto& [id, name]: sorted_nodes){
+        cout << id << "->" << name << endl;
     }
 }
 
-int po(){}
+void update_if_smaller(vector<int>& old_dist, const vector<int>& new_dist) {
+    for (int i = 0; i < old_dist.size(); ++i) {
+        if (new_dist[i] == -1) continue; // -1 表示 new_dist[i] 不可達，跳過
+        if (old_dist[i] == -1 || new_dist[i] < old_dist[i]) {
+            old_dist[i] = new_dist[i];
+        }
+    }
+}
 
-int ffi(string index){}
+void process_FFO(){
+    for(const auto& [name, ffo_value] : FFO){
+        if(ffo_value >= (INT_MAX-1)) FFO[name] = -1;
+    }
+}
+
+void process_FFI(){
+    for(const auto& [name, ffi_value] : FFI){
+        if(ffi_value >= (INT_MAX-1)) FFI[name] = -1;
+        else if(FFI[name] == 0) cout << "Something fucked" << endl;
+        else FFI[name] = FFI[name]-1;
+    }
+}
+
+void initvector(vector<int> &v, int n){
+    for(int i = 0; i < n; i++){
+        v.push_back(-1);
+    }
+}
+
+void showvector(const vector<int> v){
+    cout << "[";
+    for(const auto& element : v){
+        cout << element << ",";
+    }
+    cout << "]" << endl;
+}
+
+vector<int> pi(string start){
+    // not use recursive method
+    // start from output nodes
+    int n = nodes.size(); // total # of nodes, use id to store
+    vector<int> dist (n, -1);  // -1 表示還沒到過 // 
+    queue<int> q;
+
+    dist[node_id_map[start]] = 0;
+    q.push(node_id_map[start]);
+
+    while (!q.empty()) {
+        int node = q.front();
+        q.pop();
+        // from output go back, so use inputs
+        for (const auto& offspring : output_data_dependency[id_node_map[node]]) {
+            // wire name -> node name -> id
+            int neighbor = node_id_map[offspring];
+            if (dist[neighbor] == -1) {  // 沒拜訪過
+                dist[neighbor] = dist[node] + 1;
+                q.push(neighbor);
+            }
+        }
+    }
+    return dist;
+}
+
+vector<int> po(string start){
+    // not use recursive method
+    // start from output nodes
+    int n = nodes.size(); // total # of nodes, use id to store
+    vector<int> dist (n, -1);  // -1 表示還沒到過 // 
+    queue<int> q;
+
+    dist[node_id_map[start]] = 0;
+    q.push(node_id_map[start]);
+
+    while (!q.empty()) {
+        int node = q.front();
+        q.pop();
+        // from output go back, so use inputs
+        for (const auto& ancestor : nodes[id_node_map[node]].inputs) {
+            if(valid(ancestor)){
+                // wire name -> node name -> id
+                int neighbor = node_id_map[wire_to_node[ancestor]];
+                if (dist[neighbor] == -1) {  // 沒拜訪過
+                    dist[neighbor] = dist[node] + 1;
+                    q.push(neighbor);
+                }
+            }
+        }
+    }
+    return dist;
+}
+
+int ffi(string index){
+    if(FFI.count(index) > 0){
+        return FFI[index];
+    }
+    else {
+        if(output_data_dependency[index].size() <= 0){
+            FFI[index] = INT_MAX-1;
+            return FFI[index];
+        }
+        else{
+            int temp = INT_MAX-1;
+            for(const auto& offspring : output_data_dependency[index]){
+                if(nodes[offspring].type=="dff"){
+                    temp = 0;
+                    break;
+                }
+                if(ffi(offspring) < temp) temp = FFI[offspring];
+            }
+            FFI[index] = (temp >= (INT_MAX-1))? (INT_MAX-1) : (temp+1);
+            return FFI[index];
+        }
+    }
+}
 
 int ffo(string index){
     if(FFO.count(index) > 0){
@@ -163,52 +279,92 @@ int ffo(string index){
     }
     else {
         if(nodes[index].inputs.size() <= 0){
-            FFO[index] = INT_MAX;
+            FFO[index] = INT_MAX-1;
             return FFO[index];
         }
         else{
-            int temp = INT_MAX;
+            int temp = INT_MAX-1;
             for(const auto& ancestor : nodes[index].inputs){
                 if(ffo(wire_to_node[ancestor]) < temp) temp = FFO[wire_to_node[ancestor]];
             }
-            FFO[index] = (temp == INT_MAX)? INT_MAX : (temp+1);
+            FFO[index] = (temp >= (INT_MAX-1))? (INT_MAX-1) : (temp+1);
             return FFO[index];
         }
     }
 }
 
 void FeatureExtraction(){
+    int n = nodes.size(); // total number of nodes // PI
     // calculate lgfi
     cout << "=========================LGFI=========================" << endl;
     for (const auto& [id, name] : sorted_nodes){
         LGFI[name] = lgfi(name);
         cout << name << " => " << LGFI[name] << endl;
     }
+    // calculate po
+    
+    initvector(PO, n); // fill in -1
+    vector<int> new_po;
+    show_current_id_node_map();
+    cout << "=======PO=======" << endl;
+    for (const auto& output_port: primary_output_node_name){
+        cout << "Current_output:" << output_port << endl;
+        new_po = po(output_port);
+        update_if_smaller(PO, new_po);
+        showvector(PO);
+    }
+    // calculate pi
+    initvector(PI, n); // fill in -1
+    cout << "=======PI========" << endl;
+    vector<int> new_pi;
+    for (const auto& input_port: primary_input_node_name){
+        cout << "Current_input:" << input_port << endl;
+        new_pi = pi(input_port);
+        update_if_smaller(PI, new_pi);
+        showvector(PI);
+    }
     // calculate pi and ffo
-    cout << "Start recursive part" << endl;
+    cout << "========================Start recursive part==========" << endl;
     int dummy;
     for (const auto& output_port: primary_output_node_name){
-        dummy = pi(output_port);
         dummy = ffo(output_port);
     }
     for (const auto& ff_input: dff_input_name){
         if(valid(ff_input)){
-            dummy = pi(wire_to_node[ff_input]);
             dummy = ffo(wire_to_node[ff_input]);
         }
     }
+    for (const auto& input_port: primary_input_node_name){
+        dummy = ffi(input_port);
+    }
     for (const auto& ff_output: dff_node_name){
-        PI[ff_output] = 1 + PI[wire_to_node[dff_dq_map[ff_output]]];
-        FFO[ff_output] = 1 + FFO[wire_to_node[dff_dq_map[ff_output]]];
+        dummy = ffi(ff_output);
     }
-    cout << "=========================PI=========================" << endl;
-    for (const auto& [key, value] : PI) {
-        cout << key << " => " << value << endl;
-    }
+    process_FFI();
+    process_FFO();
     cout << "=========================FFO=========================" << endl;
     for (const auto& [key, value] : FFO) {
         cout << key << " => " << value << endl;
     }
+    cout << "=========================FFI=========================" << endl;
+    for (const auto& [key, value] : FFI) {
+        cout << key << " => " << value << endl;
+    }
+    /*
+    cout << "========================Output dependency============" << endl;
+    for (const auto& [name , to] : output_data_dependency){
+        cout << name << ":" << endl;
+        cout << "==offspring==" << endl;
+        for(const auto& offspring : to){
+            cout << offspring << endl;
+        }
+        cout << "==ancestor==" << endl;
+        for(const auto& ancestor: nodes[name].inputs){
+            if(valid(ancestor)) cout << wire_to_node[ancestor] << endl;
+        }
+        cout << "end" << endl;
+    }
+    */
 }
 
 void initialize(){
@@ -237,18 +393,23 @@ void start_and_clear(){
     nodes.clear();
     wire_to_node.clear();
     node_id_map.clear();
+    id_node_map.clear();
     primary_input_node_name.clear();
     primary_output_node_name.clear();
     dff_node_name.clear();
     dff_input_name.clear();
     sorted_nodes.clear();
     dff_dq_map.clear();
+    Trojaned.clear();
 }
 
 
 int main(){
 
-    ifstream infile("../release(20250517)/release/design0.v");
+    bool svm_need_label = true;
+
+    ifstream infile("../release_all/trojan/design0.v");
+    ifstream inresult("../release_all/trojan/result0.txt");
     //ifstream infile("circuit.v");
     ofstream edgefile("edges.csv");
     ofstream nodefile("nodetypes.csv");
@@ -346,7 +507,7 @@ int main(){
                 nodes[port_name] = p;
                 wire_to_node[p.output] = port_name;
                 node_id_map[port_name] = node_id_counter++;
-                primary_input_node_name.push_back(port_name);
+                primary_input_node_name.push_back   (port_name);
             }
         }
         else if(type == "output"){
@@ -370,6 +531,7 @@ int main(){
     }
 
     for (const auto& [name, id] : node_id_map) {
+        id_node_map[id] = name;
         sorted_nodes.emplace_back(id, name);
     }
     sort(sorted_nodes.begin(), sorted_nodes.end()); // sort with id
@@ -419,6 +581,7 @@ int main(){
         for (const string& input_wire : g.inputs) {
             if(valid(input_wire)){
                 // iterate all g's input
+                output_data_dependency[wire_to_node[input_wire]].push_back(name);
                 if (wire_to_node.find(input_wire) != wire_to_node.end()) {
                     string src_node = wire_to_node[input_wire];
                     //edgefile << node_id_map[src_node] << "," << node_id_map[name] << endl;
@@ -440,13 +603,18 @@ int main(){
 
     FeatureExtraction();
     // header
-    GNNfeaturefile << "id,name";
-    for (int i = 0; i < num_features; ++i) {
-        GNNfeaturefile << ",feature_" << i;
+    GNNfeaturefile << "id,name,LGFi,FFi,FFo,Pi,Po";
+    if(svm_need_label){
+        read_trojanned_label(inresult);
+        GNNfeaturefile << ",Trojan_gate";
     }
     GNNfeaturefile << endl;
     for (const auto& [id, name] : sorted_nodes) {
-        GNNfeaturefile << id << "," << name << "," << PI[name] << "," << FFO[name] << "," << LGFI[name] << endl;
+        GNNfeaturefile << id << "," << name << "," << LGFI[name] << "," << FFI[name] << "," << FFO[name] << "," << PI[id] << "," << PO[id];
+        if(svm_need_label){
+            GNNfeaturefile << "," << (Trojaned[id])?1:0;
+        }
+        GNNfeaturefile << endl;
     }
 
     return 0;

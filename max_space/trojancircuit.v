@@ -1,12 +1,12 @@
 module(n0, n1, n2, n3, n4, n8);
 
 input [1:0] n0, n1;
-input n2, n4;
+input n2;
 input [2:0] n8;
 output [1:0] n3;
 output [1:0] n9;
 
-wire n5, n6, n7;
+wire n4, n5, n6, n7;
 
 and g1(
     .A(n0[1]), 
