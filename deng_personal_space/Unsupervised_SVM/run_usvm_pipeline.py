@@ -133,12 +133,19 @@ def main():
 
         f1_records.append((i, f1))
 
-    # 3. 輸出 Final_USVM.csv
-    final_csv = "Final_USVM.csv"
+    # 3. 建立安全字串
+    safe_nu = str(args.nu).replace(".", "p")
+    safe_gamma = str(args.gamma).replace(".", "p")
+    safe_cols = "-".join(args.cols)
+
+    final_csv = f"Final_USVM_nu{safe_nu}_g{safe_gamma}_c{safe_cols}.csv"
+
     with open(final_csv, "w", newline="") as f:
         writer = csv.writer(f)
-        writer.writerow(["design", "f1 score"])
-        writer.writerows(f1_records)
+        writer.writerow(["design", "f1 score", "nu", "gamma", "cols"])
+        for d, f1 in f1_records:
+            writer.writerow([d, f"{f1:.6f}", args.nu, args.gamma, "|".join(args.cols)])
+
     print(f"\n✅ Pipeline 完成，結果寫入 {final_csv}")
 
 
