@@ -1,125 +1,118 @@
 #!/usr/bin/env python3
 """
-ocsvm.py  —  One-Class SVM for CSV (id, name, features)
+ocsvm.py — One-Class SVM for CSV (with header)
 
 功能概要
 ────────
-1. 讀取含「id、name、特徵」的 CSV（預設逗號分隔）
-2. 僅對 --cols 指定的特徵欄做：
+1. 讀取含 header 的 CSV
+2. 僅對 --cols 指定欄位做：
    • INT_MAX → 欄內其餘值平均
    • log1p 壓縮 → StandardScaler → RBF One-Class SVM 訓練
-3. 推論後，把異常列 (y = –1) 輸出到 --out（含 id、name、全部特徵）
-4. 另存模型與 scaler 到 <prefix>.joblib
+3. 推論後，把異常列 (y = –1) 輸出到 --out（含所有欄位）
+4. 同時存模型與 scaler、log 轉換器到 <prefix>.joblib
 
 使用範例
 ────────
-python ocsvm.py --csv GNNfeature.csv --cols 2 3 4 --out test.out
-python ocsvm.py --csv data.csv --cols 2 3 4 5 6 --nu 0.03 --gamma 0.2
+python ocsvm.py \
+    --csv 0.csv \
+    --cols LGFi FFi FFo \
+    --nu 0.02 \
+    --out anomalies.csv
 """
 
 import argparse
-import pathlib
+import os
 
+import joblib
 import numpy as np
 import pandas as pd
-from joblib import dump
 from sklearn.preprocessing import FunctionTransformer, StandardScaler
 from sklearn.svm import OneClassSVM
 
 
-# ───────────────────────── argparse ─────────────────────────
-def parse_args() -> argparse.Namespace:
-    p = argparse.ArgumentParser(description="OC-SVM on selected feature columns")
-    p.add_argument("--csv", required=True,
-                   help="Input CSV path (id, name, feat1..featN)")
-    p.add_argument("--cols", "--column", nargs="+", type=int, required=True,
-                   help="0-based feature column indices (>=2). Ex: --cols 2 3 4")
-    p.add_argument("--intmax", type=int,
-                   default=np.iinfo(np.int32).max,
-                   help="Sentinel value representing invalid data (default INT_MAX)")
-    p.add_argument("--nu", type=float, default=0.05,
-                   help="Upper-bound on training outlier fraction (default 0.05)")
-    p.add_argument("--gamma", default="scale",
-                   help="'scale' | 'auto' | float — RBF bandwidth")
-    p.add_argument("--out", default="anomaly.out",
-                   help="Output file for abnormal rows (default anomaly.out)")
-    p.add_argument("--save", default="ocsvm",
-                   help="Prefix for saved model bundle (default ocsvm.joblib)")
-    p.add_argument("--sep", default=",",
-                   help="Field separator (default ','); "
-                        "regex allowed, e.g. '\\s+' for whitespace")
+def gamma_type(x: str):
+    """允許 gamma 接受 float 或 'scale' / 'auto' 字串"""
+    try:
+        return float(x)
+    except ValueError:
+        return x
+
+
+def parse_args():
+    p = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        description="Train / infer One-Class SVM from CSV",
+    )
+    p.add_argument("--csv", required=True, help="輸入 CSV 檔路徑")
+    p.add_argument(
+        "--cols",
+        nargs="+",
+        required=True,
+        help="特徵欄位：可用名稱或 0-based 索引，兩者可混用",
+    )
+    p.add_argument(
+        "--out", required=True, help="輸出異常列的 CSV 檔名；同名 prefix 亦用於 .joblib"
+    )
+    p.add_argument("--sep", default=",", help="CSV 欄位分隔符")
+    p.add_argument("--nu", type=float, default=0.01, help="One-Class SVM 的 ν")
+    p.add_argument(
+        "--gamma",
+        type=gamma_type,
+        default="scale",
+        help="RBF γ（float 或 'scale' / 'auto'）",
+    )
+    p.add_argument(
+        "--int-max", type=int, default=2**31 - 1, help="視為遺失值的整數常數"
+    )
     return p.parse_args()
 
 
-# ────────────────────────── helpers ─────────────────────────
-def replace_intmax_with_col_mean(df: pd.DataFrame,
-                                 cols: list[int],
-                                 sentinel: int) -> None:
-    """In-place: replace sentinel in given columns with column mean."""
-    for c in cols:
-        col = df[c].astype(float)
-        mask = col == sentinel
-        if mask.any():
-            mean_good = col[~mask].mean()
-            if np.isnan(mean_good):          # 該欄全部都是 sentinel
-                mean_good = 0.0
-            df.loc[mask, c] = mean_good
-
-
-# ─────────────────────────── main ───────────────────────────
-def main() -> None:
+def main():
     args = parse_args()
-    csv_path = pathlib.Path(args.csv).expanduser().resolve()
-    if not csv_path.exists():
-        raise FileNotFoundError(csv_path)
 
-    # 1. 讀檔
-    df = pd.read_csv(csv_path,
-                     header=None,
-                     sep=args.sep,
-                     engine="python" if args.sep != "," else "c")
+    # 1. 讀檔（首行做 header）
+    df = pd.read_csv(
+        args.csv, header=0, sep=args.sep, engine="python" if args.sep != "," else "c"
+    )
 
-    # 2. 驗證欄位
-    if any(c < 2 or c >= df.shape[1] for c in args.cols):
-        raise ValueError(f"Feature columns must be between 2 and {df.shape[1]-1}")
+    # 2. 解析特徵欄位（名稱或索引皆可）
+    feature_cols = []
+    for c in args.cols:
+        if c.isdigit():
+            idx = int(c)
+            if idx >= len(df.columns):
+                raise ValueError(f"索引 {idx} 超出範圍；CSV 只有 {len(df.columns)} 欄")
+            feature_cols.append(df.columns[idx])
+        else:
+            if c not in df.columns:
+                raise ValueError(f"找不到欄位 {c!r}")
+            feature_cols.append(c)
 
-    # 3. 將 INT_MAX 轉為欄平均
-    replace_intmax_with_col_mean(df, args.cols, args.intmax)
+    X = df[feature_cols].copy()
 
-    # 4. 拆分 id/name 與特徵
-    id_name = df.iloc[:, :2]
-    X_raw   = df.iloc[:, args.cols].astype(float).values
+    # 3. INT_MAX → 欄內平均
+    for col in feature_cols:
+        mask = X[col] == args.int_max
+        if mask.any():
+            mean_val = X.loc[~mask, col].mean()
+            X.loc[mask, col] = mean_val
 
-    # 5. 前處理 → OC-SVM
-    log_scaler = FunctionTransformer(np.log1p, validate=False)
-    std_scaler = StandardScaler()
-    X_std = std_scaler.fit_transform(log_scaler.fit_transform(X_raw))
+    # 4. 前處理與訓練
+    log_tf = FunctionTransformer(np.log1p, validate=False)
+    scaler = StandardScaler()
+    X_proc = scaler.fit_transform(log_tf.fit_transform(X))
 
-    ocsvm = OneClassSVM(kernel="rbf",
-                        gamma=float(args.gamma) if args.gamma not in {"scale", "auto"}
-                        else args.gamma,
-                        nu=args.nu)
-    ocsvm.fit(X_std)
+    clf = OneClassSVM(kernel="rbf", nu=args.nu, gamma=args.gamma)
+    clf.fit(X_proc)
 
-    # 6. 推論 & 輸出異常
-    y_pred = ocsvm.predict(X_std)           # +1 normal, −1 anomaly
-    anomalies = df[y_pred == -1]
-    if anomalies.empty:
-        print("[Info] No anomalies detected.")
-    else:
-        # 輸出分隔符沿用輸入: 若 args.sep 是 regex，改用空白輸出最安全
-        out_sep = " " if len(args.sep) > 1 or args.sep.strip() == r"\s+" else args.sep
-        anomalies.to_csv(args.out, sep=out_sep, index=False, header=False)
-        print(f"[Saved] {args.out}  (rows: {len(anomalies)})")
+    # 5. 推論並輸出異常列
+    preds = clf.predict(X_proc)  # 1=正常, -1=異常
+    anomalies = df[preds == -1]
+    anomalies.to_csv(args.out, index=False)
 
-    # 7. 儲存模型 + scaler
-    dump({
-        "model": ocsvm,
-        "log_scaler": log_scaler,
-        "std_scaler": std_scaler,
-        "feature_cols": args.cols
-    }, f"{args.save}.joblib")
-    print(f"[Saved] {args.save}.joblib")
+    # 6. 儲存模型與前處理器
+    bundle = dict(clf=clf, scaler=scaler, log_tf=log_tf, features=feature_cols)
+    joblib.dump(bundle, f"{os.path.splitext(args.out)[0]}.joblib")
 
 
 if __name__ == "__main__":
