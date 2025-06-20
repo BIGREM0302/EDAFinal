@@ -37,7 +37,7 @@ def infer_batch(graphs, model, device, threshold=0.5, batch_size=8):
 
 if __name__ == "__main__":
     root_dir    = "./testset"
-    model_path  = "./models/trojan_detector_type1.pt"  # ✅ 只載入這個模型
+    model_path  = "./models/trojan_detector.pt"  # ✅ 只載入這個模型
     device      = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     threshold   = 0.6
     batch_size  = 4
@@ -49,8 +49,24 @@ if __name__ == "__main__":
 
     results = infer_batch(graphs, model, device, threshold, batch_size)
 
+    count = 0
+    correct_count = 0
     for idx, (pred, prob) in enumerate(results):
+        count = count + 1
+        if(idx < 20):
+            if pred: 
+                print("correct!")
+                correct_count = correct_count+1
+            else:
+                print("wrong...")
+        else:
+            if pred:
+                print("wrong...")
+            else:
+                correct_count = correct_count+1
+                print("correct!")
         if pred:
             print(f"樣本 {idx:3d}: 預測 **有** Trojan，機率 = {prob:.3f}")
         else:
             print(f"樣本 {idx:3d}: 預測 **無** Trojan，機率 = {prob:.3f}")
+    print(f"正確比例: {correct_count} / {count}")

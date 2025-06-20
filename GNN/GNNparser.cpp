@@ -102,6 +102,10 @@ struct Node {
     vector<string> inputs;
 };
 
+string pad2(int i) {
+    return (i < 10 ? "0" : "") + to_string(i);
+}
+
 int main(){
 
     bool islabelled = true;
@@ -112,12 +116,16 @@ int main(){
     //const string base_output_path = "./testset/";
     initialize();
 
-    for(int i = 10; i < 30; i ++){
+    // 0 - 9 with label -> for train
+    // 10 - 19 trojan no label -> for test
+    // 20 - 29 clean -> for train, label = 0
+    for(int i = 0; i < 10; i ++){
     int label = i + 1;
+    //int label = 0;
     string design_dir = "design"+to_string(i);
     string design_file = design_dir+".v";
     string input_path = base_input_path+design_file;
-    string output_path = base_output_path + "raw/" + design_dir + "/";
+    string output_path = base_output_path + "raw/design" + pad2(i) + "/";
     
     fs::create_directories(output_path);
 

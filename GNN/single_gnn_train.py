@@ -22,6 +22,7 @@ class VerilogDataset(InMemoryDataset):
         graphs = []
         for design_dir in sorted(glob.glob(os.path.join(self.raw_dir, '*'))):
             print(design_dir)
+            print("a")
             # expected file structure:
             # root -
             #      design1/
@@ -113,7 +114,7 @@ if __name__ == '__main__':
     root_dir = './dataset'
     device   = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     batch_size = 8
-    epochs     = 50
+    epochs     = 1000
     lr         = 2e-3
     wd         = 1e-4
 
@@ -122,14 +123,14 @@ if __name__ == '__main__':
     print(len(full_dataset))
     # 為了 stratify，我们先收集原始多類別標籤
     all_labels = [full_dataset[i].y.item() for i in range(len(full_dataset))]
-
-    print(f'\n=== Training classifier for Trojan type {trojan_type} ===')
+    print(all_labels)
+    print(f'\n=== Training classifier ===')
 
     # 建立 indices 列表並用 stratify 分割
     _, idx_te = train_test_split(
         list(range(len(full_dataset))),
         test_size=0.5,
-        stratify=all_labels,
+        #stratify=all_labels,
         random_state=42
     )
     # our train data size too small
@@ -160,6 +161,8 @@ if __name__ == '__main__':
             acc = evaluate(model, loader_te, device)
             print(f'  Epoch {epoch:03d}  loss={loss:.4f}  val_acc={acc:.3f}')
 
+    model_dir = './models'
+    os.makedirs(model_dir, exist_ok=True)  # 如果資料夾已存在，不會報錯
     model_path = f'./models/trojan_detector.pt'
     torch.save(model.state_dict(), model_path)
     print(f'  >> Saved model to {model_path}')
