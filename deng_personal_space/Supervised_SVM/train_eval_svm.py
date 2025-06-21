@@ -34,22 +34,25 @@ warnings.filterwarnings("ignore", category=UserWarning)
 # ----------------------------- 固定常數 ---------------------------------------
 FEATURES = ["LGFi", "FFi", "FFo", "Pi", "Po"]
 LABEL = "Trojan_gate"  # ←← 這裡已改
-TEST_IDS = list(range(10, 20))
+TEST_IDS = list(range(0, 20))
 TRAIN_IDS = list(range(0, 10))
+ALL_IDS = list(range(0,20))
 RE_N_INPUT = re.compile(r"^n\[\d+\]$")
 
 
 # -------------------------- 讀檔與前處理 --------------------------------------
 def read_split(data_dir: Path):
     train_dfs, test_dfs = {}, {}
-    for idx in TRAIN_IDS + TEST_IDS:
+    for idx in ALL_IDS:
         f = data_dir / f"GNNfeature{idx}.csv"
         df = pd.read_csv(f)
 
         # 先把 5 個特徵轉成 float，避免之後補平均值報 dtype 警告
         df[FEATURES] = df[FEATURES].astype(float)
-
-        (train_dfs if idx in TRAIN_IDS else test_dfs)[idx] = df
+        if idx in TRAIN_IDS:
+            train_dfs[idx] = df
+        if idx in TEST_IDS:
+            test_dfs[idx] = df
     return train_dfs, test_dfs
 
 
@@ -93,7 +96,12 @@ def train_and_eval(train_dfs, test_dfs):
 
     # ---- 測試集 ----
     test_concat = pd.concat(test_dfs.values(), ignore_index=True)
+
     y_pred = best_model.predict(test_concat[FEATURES].values)
+    
+    mask_n = test_concat["name"].str.startswith("n")
+    y_pred = np.where(mask_n, 0, y_pred)
+
     f1 = f1_score(test_concat[LABEL].astype(int).values, y_pred)
     print(f"➜ Test F1     : {f1:.4f}")
 
@@ -120,7 +128,6 @@ def save_outputs(result_dir: Path, model, f1, test_dfs, y_pred):
         trojan_df[["name"]].to_csv(
             result_dir / f"GNNfeature{idx}_SVM.csv", header=False, index=False
         )
-
 
 # ------------------------------ 主程式 ----------------------------------------
 def main():

@@ -115,6 +115,40 @@ vector<string> dff_input_name;
 
 vector<pair<int, string>> sorted_nodes; // (id, name)
 
+// save nodes
+
+void save_graph_info(const string& dirname){
+    ofstream fout1(dirname + "wire_to_node.txt");
+    ofstream fout2(dirname + "node_id_map.txt");
+    for (const auto& [key, val] : wire_to_node) {
+        fout1 << key << " " << val << "\n";
+    }
+    fout1.close();
+    for (const auto& [key, val] : node_id_map) {
+        fout2 << key << " " << val << "\n";
+    }
+    fout2.close();
+}
+
+void save_nodes(const string& dirname) {
+    ofstream fout(dirname + "nodes.txt");
+    if (!fout) {
+        cerr << "Failed to open file for writing: " << (dirname+"nodes.txt") << endl;
+        return;
+    }
+
+    for (const auto& [key, node] : nodes) {
+        fout << key << "," << node.name << "," << node.type << "," << node.output;
+        for (const auto& input : node.inputs) {
+            fout << "," << input;
+        }
+        fout << "\n";
+    }
+    fout.close();
+}
+
+// 
+
 void read_trojanned_label(ifstream& resultfile){
     string line;
     int line_count = 0;
@@ -299,6 +333,7 @@ int ffo(string index){
         else{
             int temp = INT_MAX-1;
             for(const auto& ancestor : nodes[index].inputs){
+                if(valid(ancestor))
                 if(ffo(wire_to_node[ancestor]) < temp) temp = FFO[wire_to_node[ancestor]];
             }
             FFO[index] = (temp >= (INT_MAX-1))? (INT_MAX-1) : (temp+1);
@@ -422,6 +457,9 @@ void start_and_clear(){
     Trojaned.clear();
 }
 
+string pad2(int i) {
+    return (i < 10 ? "0" : "") + to_string(i);
+}
 
 int main(){
 
@@ -443,6 +481,8 @@ for(int j = 0; j <= 19; j++){
     ofstream GNNnodefile("GNNnodetypes.csv");
     ofstream GNNfeaturefile(output_base+"GNNfeature"+to_string(j)+".csv");
 
+    string output_info_base = output_base + "info/design" + pad2(j) + "/";
+    fs::create_directories(output_info_base);
 
     string line;
     int node_id_counter = 0;
@@ -641,6 +681,8 @@ for(int j = 0; j <= 19; j++){
         }
         GNNfeaturefile << endl;
     }
+    save_nodes(output_info_base);
+    save_graph_info(output_info_base);
 
 } // end of each iteraiton
 
