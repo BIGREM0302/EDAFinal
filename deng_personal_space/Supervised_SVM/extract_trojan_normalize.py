@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-train_eval_svm.py  (updated)
+ensemble_train_eval_svm.py  (updated)
 ──────────────────────────────────────────────────────────────────────────
 • 讀取 GNNfeature0.csv–GNNfeature19.csv
 • 0–9 作訓練、10–19 作測試
@@ -34,9 +34,8 @@ warnings.filterwarnings("ignore", category=UserWarning)
 # ----------------------------- 固定常數 ---------------------------------------
 FEATURES = ["LGFi", "FFi", "FFo", "Pi", "Po"]
 LABEL = "Trojan_gate"  # ←← 這裡已改
-TEST_IDS = list(range(0, 20))
+TEST_IDS = list(range(10, 20))
 TRAIN_IDS = list(range(0, 10))
-ALL_IDS = list(range(0, 20))
 RE_N_INPUT = re.compile(r"^n\[\d+\]$")
 
 
@@ -112,12 +111,7 @@ def train_and_eval(train_dfs, test_dfs):
 
     # ---- 測試集 ----
     test_concat = pd.concat(test_dfs.values(), ignore_index=True)
-
     y_pred = best_model.predict(test_concat[FEATURES].values)
-
-    mask_n = test_concat["name"].str.startswith("n")
-    y_pred = np.where(mask_n, 0, y_pred)
-
     f1 = f1_score(test_concat[LABEL].astype(int).values, y_pred)
     print(f"➜ Test F1     : {f1:.4f}")
 
