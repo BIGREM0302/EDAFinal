@@ -36,23 +36,39 @@ FEATURES = ["LGFi", "FFi", "FFo", "Pi", "Po"]
 LABEL = "Trojan_gate"  # ←← 這裡已改
 TEST_IDS = list(range(0, 20))
 TRAIN_IDS = list(range(0, 10))
-ALL_IDS = list(range(0,20))
+ALL_IDS = list(range(0, 20))
 RE_N_INPUT = re.compile(r"^n\[\d+\]$")
 
 
 # -------------------------- 讀檔與前處理 --------------------------------------
+# --------- read_split (加入 per-file column-wise normalization) ---------------
 def read_split(data_dir: Path):
-    train_dfs, test_dfs = {}, {}
-    for idx in ALL_IDS:
+    """
+    1. 先把 TRAIN_IDS ∪ TEST_IDS 指定的檔案全部讀進 all_dfs
+    2. 對 FEATURES 欄做 0–1 normalization（以本檔非 -1 的最大值為基準）
+    3. 切出 train_dfs、test_dfs 兩個字典
+    """
+    all_dfs = {}
+    for idx in set(TRAIN_IDS).union(TEST_IDS):
         f = data_dir / f"GNNfeature{idx}.csv"
         df = pd.read_csv(f)
 
-        # 先把 5 個特徵轉成 float，避免之後補平均值報 dtype 警告
+        # ---- 轉 float，避免後續補平均值型別衝突 ----
         df[FEATURES] = df[FEATURES].astype(float)
-        if idx in TRAIN_IDS:
-            train_dfs[idx] = df
-        if idx in TEST_IDS:
-            test_dfs[idx] = df
+
+        # ---- 每檔內自行 0–1 normalization ----
+        for c in FEATURES:
+            col_mask = df[c] != -1  # 忽略 -1 (缺值)
+            if col_mask.any():
+                col_max = df.loc[col_mask, c].max()
+                if col_max != 0:
+                    df.loc[col_mask, c] = df.loc[col_mask, c] / col_max
+
+        all_dfs[idx] = df
+
+    # ---- 分派到 train / test dict ----
+    train_dfs = {idx: all_dfs[idx] for idx in TRAIN_IDS}
+    test_dfs = {idx: all_dfs[idx] for idx in TEST_IDS}
     return train_dfs, test_dfs
 
 
@@ -98,7 +114,7 @@ def train_and_eval(train_dfs, test_dfs):
     test_concat = pd.concat(test_dfs.values(), ignore_index=True)
 
     y_pred = best_model.predict(test_concat[FEATURES].values)
-    
+
     mask_n = test_concat["name"].str.startswith("n")
     y_pred = np.where(mask_n, 0, y_pred)
 
@@ -128,6 +144,7 @@ def save_outputs(result_dir: Path, model, f1, test_dfs, y_pred):
         trojan_df[["name"]].to_csv(
             result_dir / f"GNNfeature{idx}_SVM.csv", header=False, index=False
         )
+
 
 # ------------------------------ 主程式 ----------------------------------------
 def main():
