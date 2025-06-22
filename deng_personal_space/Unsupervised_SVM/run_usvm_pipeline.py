@@ -133,6 +133,14 @@ def main():
 
         f1_records.append((i, f1))
 
+    # ★ NEW ────────────────────────────────────────────────
+    # 2. 計算所有 design 的平均 F1
+    if f1_records:  # 避免分母為 0
+        avg_f1 = sum(f for _, f in f1_records) / len(f1_records)
+    else:
+        avg_f1 = 0.0
+    # ───────────────────────────────────────────────────────
+
     # 3. 建立安全字串
     safe_nu = str(args.nu).replace(".", "p")
     safe_gamma = str(args.gamma).replace(".", "p")
@@ -145,8 +153,11 @@ def main():
         writer.writerow(["design", "f1 score", "nu", "gamma", "cols"])
         for d, f1 in f1_records:
             writer.writerow([d, f"{f1:.6f}", args.nu, args.gamma, "|".join(args.cols)])
-
-    print(f"\n✅ Pipeline 完成，結果寫入 {final_csv}")
+        # 最後再補上一列「平均值」
+        writer.writerow(
+            ["average", f"{avg_f1:.6f}", args.nu, args.gamma, "|".join(args.cols)]
+        )
+    print(f"\n✅ Pipeline 完成，平均 F1 = {avg_f1:.6f}，結果寫入 {final_csv}")
 
 
 if __name__ == "__main__":
