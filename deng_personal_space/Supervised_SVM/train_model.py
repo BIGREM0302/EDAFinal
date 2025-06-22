@@ -10,13 +10,18 @@ train_model.py
 --mp {avg,nochange}   缺值 -1 策略 (default=avg)
 """
 
-import argparse, re, warnings
+import argparse
+import re
+import warnings
 from pathlib import Path
-import numpy as np, pandas as pd, joblib
+
+import joblib
+import numpy as np
+import pandas as pd
+from sklearn.model_selection import GridSearchCV, GroupKFold
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
-from sklearn.model_selection import GroupKFold, GridSearchCV
 
 warnings.filterwarnings("ignore", category=UserWarning)
 
@@ -92,7 +97,9 @@ def main():
         counts = {str(i): len(df) for i, df in dfs.items()}
         sample_w = np.array([1.0 / counts[g] for g in groups])
 
-    pipe = make_pipeline(StandardScaler(), SVC(kernel="rbf", class_weight="balanced"))
+    pipe = make_pipeline(
+        StandardScaler(), SVC(kernel="rbf", class_weight="balanced", probability=True)
+    )
     cv = GroupKFold(n_splits=5)
     gs = GridSearchCV(pipe, GRID, scoring="f1_macro", cv=cv, n_jobs=-1, verbose=1)
     fit_kwargs = {}
