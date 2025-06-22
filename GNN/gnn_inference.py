@@ -71,8 +71,24 @@ if __name__ == "__main__":
 
     results = infer_batch(graphs, models, device, threshold, batch_size)
 
+    count = 0
+    correct_count = 0
     for idx, (pred, scores) in enumerate(results):
+        count = count + 1
+        if(idx < 20):
+            if pred: 
+                print("correct!")
+                correct_count = correct_count+1
+            else:
+                print("wrong...")
+        else:
+            if pred:
+                print("wrong...")
+            else:
+                correct_count = correct_count+1
+                print("correct!")
         if pred is None:
             print(f"樣本 {idx:3d}: 無 Trojan，最高機率 {max(scores):.3f}")
         else:
             print(f"樣本 {idx:3d}: 預測 Trojan 類型 {pred}，機率 {scores[pred]:.3f}")
+    print(f"正確比例: {correct_count} / {count}")
