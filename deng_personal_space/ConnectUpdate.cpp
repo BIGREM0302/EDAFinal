@@ -28,6 +28,8 @@ unordered_map<int, string> id_node_map;             // id -> node_name
 
 vector<string> picked_gates;
 vector<string> golden_gates;
+vector<string> max_group_gates;
+vector<string> threshold_group_gates;
 
 
 string pad2(int i) {
@@ -147,6 +149,37 @@ void show_current_id_node_map(){
     }
 }
 
+double calculate_filtered_F1_score(vector<string> try_gates){
+    int TP, FP, FN, TN;
+    double precision, recall;
+    TP = 0;
+    FP = 0;
+    FN = 0;
+    TN = 0;
+    for(const auto& a:try_gates){
+        //estimate trojan
+        if (find(golden_gates.begin(), golden_gates.end(), a) != golden_gates.end()) {
+            TP += 1;
+        } else {
+            FP += 1;
+        }
+    }
+    for(const auto& a:golden_gates){
+        //estimate trojan
+        if (find(try_gates.begin(), try_gates.end(), a) == try_gates.end()) {
+            FN += 1;
+        }
+    }
+    TN = nodes.size() - TP - FN - FP;
+    precision = 1.0 * TP / (TP + FP);
+    recall = 1.0 * TP / (TP + FN);
+    cout << "======Score Result======" << endl;
+    cout << "TP: " << TP << ", FP: " << FP << endl;
+    cout << "FN: " << FN << ", TN: " << TN << endl;
+    if(TP == 0) return 0;
+    return (2 * (precision * recall))/(precision + recall);
+}
+
 double calculate_F1_score(){
     int TP, FP, FN, TN;
     double precision, recall;
@@ -174,7 +207,7 @@ double calculate_F1_score(){
     cout << "======Score Result======" << endl;
     cout << "TP: " << TP << ", FP: " << FP << endl;
     cout << "FN: " << FN << ", TN: " << TN << endl;
-    
+    if (TP == 0) return 0;
     return (2 * (precision * recall))/(precision + recall);
 }
 
@@ -220,6 +253,8 @@ int main(int argc, char* argv[]){
     // should modify for more general case
     string j;
     string golden = "0";
+    int gs;
+    bool filter = false;
     for (int i = 1; i < argc; i++) {
         string arg = argv[i];
         
@@ -230,6 +265,9 @@ int main(int argc, char* argv[]){
         } else if (arg == "--g" && i + 1 < argc) {
             golden = argv[i+1];
             cout << golden << endl;
+        } else if (arg == "--gs" && i + 1 < argc){
+            gs = stoi(argv[i+1]);
+            cout << gs << endl;
         }
     }
 
@@ -238,6 +276,7 @@ int main(int argc, char* argv[]){
     string golden_address;
     if(golden == "0"){
         test_address = "./Supervised_SVM/result/GNNfeature" + j + "_SVM.csv";
+        filter = true;
     }
     else test_address = "../release_all/trojan/result" + j + ".txt";
     golden_address = "../release_all/trojan/result" + j + ".txt";
@@ -257,10 +296,23 @@ int main(int argc, char* argv[]){
     
     cout << "=============groups============" << endl;
     int group_id = 0;
+    vector<int> candidate_group_id;
+    int max_group_id = 0;
+    int max_group_size = 0;
     for(const auto& group: groups){
         group_id ++;
         cout << "Group_id = " << group_id << endl;
         cout << "group_size = " << group.size() << endl;
+        
+        if(group.size() > max_group_size){
+            max_group_size = group.size();
+            max_group_id = group_id;
+        }
+        
+        if(group.size() > gs){
+            candidate_group_id.push_back(group_id);
+        }
+
         for(const auto& element: group){
             cout << element << ",";
         }
@@ -269,5 +321,40 @@ int main(int argc, char* argv[]){
     double f1score;
     f1score = calculate_F1_score();
     cout << "F1 score =" << f1score << endl;
+    
+    if(filter){
+        cout << "=========Start Filtering========" << endl;
+        
+        cout << "Case1: Only maximum size of group is extracted" << endl;
+        cout << "The maximum group size is: " << max_group_size << endl;
+        cout << "Maximum Group ID: " << max_group_id << endl;
+        max_group_gates.clear();
+        if(max_group_id < 1) cout << "Some errors occur" << endl;
+        max_group_gates = groups[max_group_id-1];
+        if(max_group_gates.size() != max_group_size) cout << "Some errors occur" << endl;
+        double score1;
+        score1 = calculate_filtered_F1_score(max_group_gates);
+
+        cout << "Case2: Extract group size > " << gs << " will be extracted" << endl;
+        double score2 = 0;
+        if(candidate_group_id.size() <= 0) cout << "gs is too high! no group is extracted T__T" << endl;
+        
+        threshold_group_gates.clear();
+        
+        for(const auto& gid : candidate_group_id){
+            if(gid < 1) cout << "Some bad occurs" << endl;
+            threshold_group_gates.insert(threshold_group_gates.end(), groups[gid-1].begin(), groups[gid-1].end());
+        }
+        score2 = calculate_filtered_F1_score(threshold_group_gates);
+
+        cout << "========Result Table==========" << endl;
+        cout << "Score of only max group is: " << score1 << endl;
+        if(score1 > f1score) cout << "Improved!!^_^" << endl;
+        else cout << "Noway it becomes worseQ_Q" << endl;
+        cout << "Score of > threshold: " << gs << " groups are: " << score2 << endl;
+        if(score2 > f1score) cout << "Improved!!^_^" << endl;
+        else cout << "Noway it becomes worseQ_Q" << endl;
+    }
+    
     return 0;
 }
