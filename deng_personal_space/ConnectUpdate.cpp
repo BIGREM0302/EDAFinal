@@ -13,6 +13,7 @@
 #include <map>
 
 using namespace std;
+namespace fs = std::filesystem;
 
 struct Node {
     string name;
@@ -250,6 +251,9 @@ vector<vector<string>> connect_component_detection(){
 
 int main(int argc, char* argv[]){
 
+    string output_path = "./filter/";
+
+    fs::create_directories(output_path);
     // should modify for more general case
     string j;
     string golden = "0";
@@ -323,6 +327,9 @@ int main(int argc, char* argv[]){
     cout << "F1 score =" << f1score << endl;
     
     if(filter){
+        string filterfilepath = output_path + "filter_result" + j + "_gs=" + to_string(gs) + ".csv";
+        ofstream filterfile(filterfilepath);
+        
         cout << "=========Start Filtering========" << endl;
         
         cout << "Case1: Only maximum size of group is extracted" << endl;
@@ -354,6 +361,11 @@ int main(int argc, char* argv[]){
         cout << "Score of > threshold: " << gs << " groups are: " << score2 << endl;
         if(score2 > f1score) cout << "Improved!!^_^" << endl;
         else cout << "Noway it becomes worseQ_Q" << endl;
+
+        cout << "=========Write output file=========" << endl;
+        for(const auto& newly_picked_gate: threshold_group_gates)
+            filterfile << newly_picked_gate << endl;
+        cout << "Write filtered gates to " << filterfilepath << endl;
     }
     
     return 0;
