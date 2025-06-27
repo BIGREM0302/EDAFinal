@@ -35,7 +35,7 @@ int main(int argc, char* argv[]) {
     }
 
     // Execute phase1: GNN inference
-    string python_phase1_cmd = "python gnn_inference.py";
+    string python_phase1_cmd = "python3 gnn_inference.py";
     if (system(python_phase1_cmd.c_str()) != 0) {
         cerr << "Entrance::GNN analysis failed." << endl;
         return 1;
@@ -54,7 +54,7 @@ int main(int argc, char* argv[]) {
         cout << "Entrance::The netlist has trojan" << endl;
         output_file << "TROJANED" << endl << "TROJAN_GATES" << endl;
 
-        string python_phase2_cmd = "python svm_infer.py";
+        string python_phase2_cmd = "python3 svm_infer.py";
         
         if (system(python_phase2_cmd.c_str()) != 0) {
             cerr << "Entrance::SVM inference failed." << endl;
